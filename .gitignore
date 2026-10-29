@@ -1,0 +1,17 @@
+# Credentials and anything that could hold one. Never commit these.
+*.cred
+*.pw
+*.passwordfile
+creds/
+config.json
+!config.example.json
+
+# Logs pulled back from guests
+*.log
+jobs/
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

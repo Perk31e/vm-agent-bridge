@@ -1,0 +1,11 @@
+{
+  "backend": "vmware",
+  "vm": "C:\\Virtual Machines\\Win11\\Win11.vmx",
+  "guestOS": "windows",
+  "guestWorkDir": "C:\\Users\\Public\\vm-agent-bridge",
+  "credDir": "C:\\Users\\me\\AppData\\Local\\vm-agent-bridge\\creds",
+  "profiles": {
+    "user":  { "username": "labuser",  "store": "dpapi", "ref": "guest-user.cred" },
+    "admin": { "username": "labadmin", "store": "dpapi", "ref": "guest-admin.cred" }
+  }
+}
