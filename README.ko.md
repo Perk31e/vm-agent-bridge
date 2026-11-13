@@ -48,6 +48,10 @@ vm-agent-bridge는 그 문제를 푸는 작고 단순한 패턴입니다.
 .\setup\windows\New-GuestCredential.ps1 -Backend vmware `
     -Vm "C:\Virtual Machines\Win11\Win11.vmx" -Profile admin
 
+# 선택: "password is required"가 나오는 VMware 암호화 이미지용.
+# 별도의 -vp 비밀번호를 같은 DPAPI 자격증명 저장소에 보관합니다. 이것도 사용자가 실행합니다.
+.\setup\windows\New-VmEncryptionCredential.ps1 -Profile user
+
 # 2. PROMPT.md를 에이전트 지시문(CLAUDE.md, .cursorrules 등)에 붙여 넣습니다.
 
 # 3. 이제 에이전트는 이렇게 일합니다:

@@ -19,6 +19,7 @@ agent itself. Encryption does not help if the plaintext was typed into chat firs
 | Choose the credential directory | **User** | their own terminal |
 | Enter the guest user name and password | **User** | the OS credential dialog / prompt |
 | Store it | setup script, run by the user | OS credential store |
+| Optionally store a VMware encrypted-image password | user runs `New-VmEncryptionCredential.ps1` | DPAPI as `vmEncryption`, separate from the guest profiles |
 | Use it | backend wrapper | process memory of the wrapper, for the duration of one hypervisor call |
 | Call the wrapper | **Agent** | any tool that can run a command |
 
@@ -80,7 +81,8 @@ has the full power of whatever account the profile maps to.
 
 ## What this does not protect against
 
-- **A compromised host.** `vmrun` takes `-gp <password>` on its command line; `VBoxManage` reads
+- **A compromised host.** `vmrun` takes `-gp <password>` and, for an encrypted VM image,
+  `-vp <password>` on its command line; `VBoxManage` reads
   a password file. While the wrapper runs, a local administrator on the host can read either.
   Hyper-V PowerShell Direct passes a credential object in-process and has no such window.
 - **An agent that ignores the rules.** `PROMPT.md` is instruction, not enforcement. If you need

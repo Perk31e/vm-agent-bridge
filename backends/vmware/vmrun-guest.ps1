@@ -54,25 +54,38 @@ $vmx = $cfg.vm
 $vmrun = Find-Vmrun
 # $IsMacOS only exists on PowerShell 6+; Windows PowerShell 5.1 runs under Set-StrictMode here.
 $hostType = if ((Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue) -and $IsMacOS) { 'fusion' } else { 'ws' }
+$vmEncryptionCred = Get-VabVmEncryptionCredential $cfg
 
-function Invoke-VmrunPlain([string[]]$Arguments) {
-    # No credential. Returns output lines; sets $script:rc.
-    $out = & $vmrun -T $hostType @Arguments 2>&1
-    $script:rc = $LASTEXITCODE
+function Invoke-VmrunProcess([string[]]$Arguments, [string]$GuestUser, [string]$GuestPassword) {
+    # Supports either or both credential types without printing their values. The optional
+    # -vp secret unlocks the VMware image; -gu/-gp remains for use inside the guest.
+    $encryptionPw = $null
+    try {
+        if ($vmEncryptionCred) { $encryptionPw = $vmEncryptionCred.GetNetworkCredential().Password }
+        $vmArgs = @('-T', $hostType)
+        if ($encryptionPw) { $vmArgs += @('-vp', $encryptionPw) }
+        if ($GuestUser) { $vmArgs += @('-gu', $GuestUser, '-gp', $GuestPassword) }
+        $vmArgs += $Arguments
+        $out = & $vmrun @vmArgs 2>&1
+        $script:rc = $LASTEXITCODE
+    } finally {
+        $encryptionPw = $null
+    }
     return @($out | ForEach-Object { "$_" })
 }
 
+function Invoke-VmrunPlain([string[]]$Arguments) {
+    return @(Invoke-VmrunProcess $Arguments $null $null)
+}
+
 function Invoke-VmrunAuth([string[]]$Arguments) {
-    # With credential. The password variable lives only inside this function.
     $cred = Get-VabCredential $cfg $Profile
     $pw = $cred.GetNetworkCredential().Password
     try {
-        $out = & $vmrun -T $hostType -gu $cred.UserName -gp $pw @Arguments 2>&1
-        $script:rc = $LASTEXITCODE
+        return @(Invoke-VmrunProcess $Arguments $cred.UserName $pw)
     } finally {
         $pw = $null
     }
-    return @($out | ForEach-Object { "$_" })
 }
 
 function Fail([string]$What, [string[]]$Output) {

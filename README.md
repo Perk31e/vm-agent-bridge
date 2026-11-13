@@ -54,6 +54,10 @@ Details and per-backend caveats: [docs/backends.md](docs/backends.md).
 .\setup\windows\New-GuestCredential.ps1 -Backend vmware `
     -Vm "C:\Virtual Machines\Win11\Win11.vmx" -Profile admin
 
+# Optional, for an ENCRYPTED VMware image (vmrun says "password is required"):
+# stores the separate -vp credential with DPAPI. Run this yourself as well.
+.\setup\windows\New-VmEncryptionCredential.ps1 -Profile user
+
 # 2. Paste PROMPT.md into your agent's instructions (CLAUDE.md, .cursorrules, ...).
 
 # 3. The agent now does things like:

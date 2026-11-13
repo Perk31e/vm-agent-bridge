@@ -55,6 +55,27 @@ function Get-VabCredential($cfg, [string]$ProfileName) {
     }
 }
 
+function Get-VabVmEncryptionCredential($cfg) {
+    # Optional VMware encrypted-image credential. This is separate from the guest account.
+    # The config contains only the reference; the DPAPI-protected PSCredential stays local.
+    if (-not ($cfg.PSObject.Properties.Name -contains 'vmEncryption') -or
+        $null -eq $cfg.vmEncryption) { return $null }
+    $entry = $cfg.vmEncryption
+    if ($entry.store -ne 'dpapi') {
+        throw "VM encryption store '$($entry.store)' is not supported here. Use setup/windows/New-VmEncryptionCredential.ps1."
+    }
+    if ([string]::IsNullOrWhiteSpace($entry.ref) -or $entry.ref -match '[\\/]') {
+        throw 'Invalid vmEncryption.ref; expected a credential filename without a directory.'
+    }
+    $file = Join-Path $cfg.credDir $entry.ref
+    if (-not (Test-Path -LiteralPath $file)) {
+        throw "VM encryption credential not found ($file). The user must create it with setup/windows/New-VmEncryptionCredential.ps1."
+    }
+    $cred = Import-Clixml -LiteralPath $file
+    if ($cred -isnot [System.Management.Automation.PSCredential]) { throw "'$file' does not contain a PSCredential" }
+    return $cred
+}
+
 function Get-VabGuestPath($cfg, [string]$Leaf) {
     if ($cfg.guestOS -eq 'windows') { return ($cfg.guestWorkDir.TrimEnd('\') + '\' + $Leaf) }
     return ($cfg.guestWorkDir.TrimEnd('/') + '/' + $Leaf)
