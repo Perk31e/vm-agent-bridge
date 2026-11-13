@@ -75,7 +75,9 @@ function Get-CredDirProblems([string]$Dir) {
         if (-not (Get-Item -LiteralPath $Dir).PSIsContainer) { $problems += 'exists but is a file' }
         else {
             $owner = (Get-Acl -LiteralPath $Dir).GetOwner([System.Security.Principal.SecurityIdentifier]).Value
-            if ($owner -ne $mySid) { $problems += "is owned by $owner, not by you ($($me.Name))" }
+            if ($owner -ne $mySid) {
+                $problems += "is owned by $owner, not by you ($($me.Name)); if the directory is yours, run: icacls `"$Dir`" /setowner `"$($me.Name)`""
+            }
         }
     }
     return $problems
@@ -86,6 +88,33 @@ function Lock-Acl([string]$Path, [bool]$IsDir) {
     $icaclsArgs = @("`"$Path`"", '/inheritance:r', '/grant:r', "*${mySid}:${inherit}F", '/grant:r', "*S-1-5-18:${inherit}F", '/q')
     $out = & icacls.exe @icaclsArgs 2>&1
     if ($LASTEXITCODE -ne 0) { throw "icacls failed on '$Path': $out" }
+}
+
+function Set-PathOwner([string]$Path) {
+    # An elevated shell creates new objects owned by BUILTIN\Administrators, not by the user.
+    # The credential directory/file must be owned by the user, so claim ownership explicitly.
+    $out = & icacls.exe "`"$Path`"" /setowner "*$mySid" /q 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "icacls /setowner failed on '$Path': $out" }
+}
+
+function Repair-ElevatedOwner([string]$Path) {
+    # A directory created by an earlier elevated run is owned by BUILTIN\Administrators, which
+    # makes the next profile setup fail the "owned by you" check. If the ACL already grants this
+    # user FullControl, take ownership back instead of making the user repair it by hand.
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    if (-not (Get-Item -LiteralPath $Path).PSIsContainer) { return }
+    $ownerSid = (Get-Acl -LiteralPath $Path).GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+    if ($ownerSid -ne 'S-1-5-32-544') { return }
+    $acl = Get-Acl -LiteralPath $Path
+    $mine = $acl.Access | Where-Object {
+        $_.AccessControlType -eq 'Allow' -and
+        ($_.IdentityReference.Value -eq $mySid -or $_.IdentityReference.Value -eq $me.Name) -and
+        (($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::FullControl) -eq [System.Security.AccessControl.FileSystemRights]::FullControl)
+    }
+    if (-not $mine) { return }
+    Write-Host "Note: '$Path' is owned by BUILTIN\Administrators (it was created from an elevated shell)." -ForegroundColor Yellow
+    Write-Host "      Taking ownership as $($me.Name); the ACL already grants only you and SYSTEM." -ForegroundColor Yellow
+    & icacls.exe "`"$Path`"" /setowner "*$mySid" /q | Out-Null
 }
 
 # ---- 1. credential directory ------------------------------------------------------------
@@ -109,6 +138,8 @@ if (-not [IO.Path]::IsPathRooted($CredDir)) {
 }
 $CredDir = [IO.Path]::GetFullPath($CredDir)
 
+Repair-ElevatedOwner $CredDir
+
 $problems = @(Get-CredDirProblems $CredDir | Select-Object -Unique)
 if ($problems.Count -gt 0) {
     Write-Host "Refusing credential directory '$CredDir':" -ForegroundColor Red
@@ -118,6 +149,7 @@ if ($problems.Count -gt 0) {
 
 if (-not (Test-Path -LiteralPath $CredDir)) {
     New-Item -ItemType Directory -Path $CredDir -Force | Out-Null
+    Set-PathOwner $CredDir
     Write-Host "Created $CredDir"
 }
 Lock-Acl $CredDir $true
@@ -133,6 +165,7 @@ if ([string]::IsNullOrWhiteSpace($cred.UserName)) { Write-Host 'Empty user name;
 
 $cred | Export-Clixml -LiteralPath $credFile
 Lock-Acl $credFile $false
+Set-PathOwner $credFile
 Write-Host "Stored credential for guest user '$($cred.UserName)' in $credFile"
 
 # ---- 3. config.json -----------------------------------------------------------------------
