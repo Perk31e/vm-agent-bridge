@@ -20,6 +20,13 @@ and will probably need small fixes on first contact. Please send them.
   `-T ws` on Windows/Linux, `-T fusion` on macOS; the wrapper picks.
 - **Credential path:** `vmrun -gu <user> -gp <password>`. There is no file or stdin option. The
   password is visible in the host process list for the duration of the call.
+- **Encrypted VM images:** when VMware reports `A password is required for this operation`,
+  run `setup/windows/New-VmEncryptionCredential.ps1` yourself. It stores a separate DPAPI
+  credential under `vmEncryption` and the wrapper injects `-vp <password>` into every vmrun
+  call as well as `-gu/-gp`. The image password and the guest account password are distinct;
+  the setup prompt never reveals either one to the agent. Like `-gp`, `-vp` is visible to a
+  local administrator in the host process list during that call. Without this optional config,
+  the original unencrypted-VM behavior is unchanged.
 - **Quirks that matter:**
   - `runProgramInGuest` mangles program arguments: inline commands grow stray empty arguments
     and lose quotes. This is why `job` exists. The wrapper passes exactly one argument string
