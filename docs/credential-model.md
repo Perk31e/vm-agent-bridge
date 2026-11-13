@@ -60,6 +60,13 @@ SYSTEM; the Unix script does `chmod 700` (directory) and `600` (config). The con
 contains no secrets, but it does reveal VM paths and the credential directory, which is more
 than a public repo should know.
 
+On Windows, a directory created from an **elevated** shell is owned by `BUILTIN\Administrators`
+by default, not by your account. The setup script therefore claims ownership for your SID right
+after creating the directory (and after writing each credential file). If it finds an existing
+directory in that state whose ACL already grants FullControl only to you and SYSTEM, it takes
+ownership back before validating, so adding a second profile from the same elevated shell no
+longer fails the "owned by you" check.
+
 ## Verification without re-entering the password
 
 A natural instinct is "ask the user to type the password again to confirm it". That has two
